@@ -5,8 +5,7 @@
 //! Controls: **A/D** roll, **Q/E** yaw, **W/S** pitch, **+/-** throttle,
 //! **R** reset after a crash. Change [`LAT`]/[`LON`] to fly anywhere.
 //!
-//! Runs natively (`cargo run --example demo`) and in the browser — see
-//! `web/README.md`.
+//! Runs with `cargo run --release --features demo --example demo`.
 
 use bevy::prelude::*;
 use bevytiles::prelude::*;
@@ -26,43 +25,26 @@ const CONTROL_RESPONSE: f32 = 5.0;
 const REBASE_THRESHOLD: f32 = 4096.0;
 
 fn main() {
-    let rendering = RenderingConfig {
-        fog_color: SKY,
-        // skirt_drop: 1000.0,
-        ambient: Color::srgb_u8(200, 200, 200),
-        ..Default::default()
-    };
-
     let network = NetworkConfig {
         threads: 8,
         ..Default::default()
     };
 
     let mut world = WorldConfig::from_lat_lon(LAT, LON);
-    world.skirt_overlap = [1.01; ZOOM_LEVELS];
-    // opt into greater zoom: imagery fetches natively, heightmaps above z15
-    // are synthesized, normals default to flat
+    // opt into greater zoom: imagery fetches natively, heights above z15
+    // are sampled from the z15 heightmaps
     world.max_zoom = 17;
 
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "bevytiles demo".into(),
-                // on the web, attach to the canvas in web/index.html and
-                // keep browser shortcuts (F5, Ctrl+R, ...) working
-                #[cfg(target_arch = "wasm32")]
-                canvas: Some("#bevytiles".into()),
-                #[cfg(target_arch = "wasm32")]
-                fit_canvas_to_parent: true,
-                #[cfg(target_arch = "wasm32")]
-                prevent_default_event_handling: false,
                 ..default()
             }),
             ..default()
         }))
         .insert_resource(ClearColor(SKY))
         .insert_resource(world)
-        .insert_resource(rendering)
         .insert_resource(network)
         .add_plugins(TerrainPlugin)
         .init_resource::<Flight>()
@@ -104,11 +86,27 @@ struct HudText;
 #[derive(Component)]
 struct CrashText;
 
-/// Spawn the streaming camera (marked [`TerrainCamera`]) and the UI texts.
+/// Spawn the streaming camera (marked [`TerrainCamera`], with sky-matched
+/// fog), the sun, and the UI texts.
 fn setup(mut commands: Commands, world: Res<WorldConfig>) {
+    commands.spawn((
+        DirectionalLight {
+            illuminance: 10_000.0,
+            ..Default::default()
+        },
+        Transform::default().looking_to(Vec3::new(-0.1, -1.0, -0.1), Vec3::Y),
+    ));
     commands.spawn((
         Camera3d::default(),
         TerrainCamera,
+        DistanceFog {
+            color: SKY,
+            falloff: FogFalloff::Linear {
+                start: 100_000.0,
+                end: 150_000.0,
+            },
+            ..Default::default()
+        },
         Projection::Perspective(PerspectiveProjection {
             fov: 60f32.to_radians(),
             near: 1.0,

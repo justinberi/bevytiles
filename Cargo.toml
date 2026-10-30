@@ -10,37 +10,48 @@ readme = "README.md"
 keywords = ["bevy", "terrain", "gis", "streaming", "heightmap"]
 categories = ["game-development", "rendering"]
 
+[features]
+default = ["render"]
+# the streaming plugin: tile entities, their meshes and imagery materials.
+# Without it: the LOD policy, the tile source and cache, and the CPU terrain
+# geometry, for headless consumers (physics, sensors, preloading)
+render = [
+    "bevy/bevy_asset",
+    "bevy/bevy_camera",
+    "bevy/bevy_image",
+    "bevy/bevy_light",
+    "bevy/bevy_log",
+    "bevy/bevy_mesh",
+    "bevy/bevy_pbr",
+    "bevy/bevy_render",
+]
+# the flight demo: a window, input, UI text
+demo = [
+    "render",
+    "bevy/bevy_core_pipeline",
+    "bevy/bevy_text",
+    "bevy/bevy_ui",
+    "bevy/bevy_ui_render",
+    "bevy/bevy_window",
+    "bevy/bevy_winit",
+    "bevy/default_font",
+    "bevy/multi_threaded",
+    "bevy/tonemapping_luts",
+    "bevy/ktx2",
+    "bevy/zstd_rust",
+    "bevy/wayland",
+    "bevy/x11",
+]
+
 [dependencies]
-bevy = { version = "0.20", features = ["bevy_dev_tools"] }
+bevy = { version = "0.20", default-features = false, features = ["std"] }
 crossbeam-channel = "0.5"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-ureq = "2"
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-ehttp = "0.5"
-# transitive; the `js` feature is required for wasm32-unknown-unknown
-getrandom = { version = "0.2", features = ["js"] }
+ureq = "3"
 
 [dev-dependencies]
 tempfile = "3"
 
-# dev builds of bevy are unusably slow without optimized deps
-[profile.dev.package."*"]
-opt-level = 3
-
-[profile.dev]
-opt-level = 1
-
 [[example]]
 name = "demo"
-
-# web bundle: LTO + stripped, used by web/build.sh (slow to build, much smaller)
-[profile.wasm-release]
-inherits = "release"
-opt-level = "s"
-lto = "fat"
-codegen-units = 1
-strip = "debuginfo"
-panic = "abort"
+required-features = ["demo"]
